@@ -21,9 +21,48 @@ namespace JmesPath
     using System.Collections.Generic;
     using System.Linq;
     using System.Runtime.CompilerServices;
-    using Parser = Gratt.Parser<ParseContext, TokenKind, Token, Precedence, bool>;
-    using PrefixParselet = System.Func<Token, Gratt.Parser<ParseContext, TokenKind, Token, Precedence, bool>, bool>;
-    using InfixParselet = System.Func<Token, bool, Gratt.Parser<ParseContext, TokenKind, Token, Precedence, bool>, bool>;
+    using Parser = Gratt.Parser<ParseContext, TokenKind, Token, Precedence, Unit>;
+    using PrefixParselet = System.Func<Token, Gratt.Parser<ParseContext, TokenKind, Token, Precedence, Unit>, Unit>;
+    using InfixParselet = System.Func<Token, Unit, Gratt.Parser<ParseContext, TokenKind, Token, Precedence, Unit>, Unit>;
+
+    partial struct Unit {}
+
+    partial struct TokenOrCode
+    {
+        public readonly Token Token;
+        public readonly OpCode OpCode;
+
+        public TokenOrCode(Token token)
+        {
+            Token = token;
+            OpCode = OpCode.Token;
+        }
+
+        public TokenOrCode(OpCode op)
+        {
+            Token = default;
+            OpCode = op;
+        }
+
+        public static implicit operator TokenOrCode(Token token) => new TokenOrCode(token);
+        public static implicit operator TokenOrCode(OpCode op) => new TokenOrCode(op);
+    }
+
+    public enum OpCode
+    {
+        Token,
+        CurrentNode,
+        And,
+        Or,
+        Not,
+        Dot,
+        LessThan,
+        Flatten,
+        Field,
+        Literal,
+        Identity,
+        ValueProjection
+    }
 
     //
     // This is an implementation of a C# pre-processing expression parser found in conditional
@@ -35,34 +74,55 @@ namespace JmesPath
     // an abstract syntax tree (AST) of the expression.
     //
 
-    static class PreprocessorExpression
+    static partial class Expression
     {
-        public static bool Evaluate(string expression, Func<string, bool> symbolPredicate) =>
+        public static List<TokenOrCode> Evaluate(string expression)
+        {
+            var list = new List<TokenOrCode>();
+            Evaluate(expression, list.Add);
+            return list;
+        }
+
+        public static Unit Evaluate(string expression, Action<TokenOrCode> emitter) =>
             Gratt.Parser.Parse(
-                new ParseContext(expression, symbolPredicate),
+                new ParseContext(expression, emitter),
                 Precedence.Default,
-                TokenKind.Eoi, t => new SyntaxErrorException($"Unexpected token <{t.Kind}> at offset <{t.Index}>."),
+                TokenKind.Eoi, t => new SyntaxErrorException($"Unexpected token <{t.Kind}> at offset {t.Index}."),
                 (_, token, __) => Spec.Instance.Prefix(token),
                 (kind, _, __) => Spec.Instance.Infix(kind),
-                from t in Scanner.Scan(expression)
-                where t.Kind != TokenKind.WhiteSpace
+                from t in Scanner.Scan(expression, ScanOptions.IgnoreWhiteSpace)
                 select (t.Kind, t));
     }
 
     sealed class ParseContext
     {
-        public string SourceText { get; }
-        public Func<string, bool> SymbolPredicate { get; }
+        readonly Action<TokenOrCode> _emitter;
 
-        public ParseContext(string sourceText, Func<string, bool> symbolPredicate)
+        public string SourceText { get; }
+
+        public ParseContext(string sourceText, Action<TokenOrCode> emitter)
         {
             SourceText = sourceText;
-            SymbolPredicate = symbolPredicate;
+            _emitter = emitter;
+        }
+
+        public Unit Emit(TokenOrCode toc)
+        {
+            _emitter(toc);
+            return default;
+        }
+
+        public Unit Emit(TokenOrCode toc1, TokenOrCode toc2)
+        {
+            Emit(toc1);
+            Emit(toc2);
+            return default;
         }
     }
 
     public enum TokenKind
     {
+        Eoi,
         WhiteSpace,         // *(%x20 / %x09 / %x0A / %x0D)
         At,                 // "@"
         Number,             // number = ["-"]1*digit
@@ -117,7 +177,6 @@ namespace JmesPath
         Literal,            // literal           = "`" json-value "`"
                             //                   ; The ``json-value`` is any valid JSON value with the one
                             //                   ; exception that the ``%x60`` character must be escaped.
-        Eoi,
     }
 
     readonly partial struct Token : IEquatable<Token>
@@ -130,9 +189,7 @@ namespace JmesPath
             (Kind, Index, Length) = (kind, index, length);
 
         public bool Equals(Token other) =>
-            Kind == other.Kind
-            && Index.Equals(other.Index)
-            && Length.Equals(other.Length);
+            Kind == other.Kind && Index == other.Index && Length == other.Length;
 
         public override bool Equals(object obj) =>
             obj is Token other && Equals(other);
@@ -144,7 +201,7 @@ namespace JmesPath
         public static bool operator !=(Token left, Token right) => !left.Equals(right);
 
         public override string ToString() =>
-            $"{Kind} [{Index}..{Length})";
+            $"{Kind} [{Index}..{Index + Length})";
 
         public string Substring(string source) =>
             source.Substring(Index, Length);
@@ -153,10 +210,21 @@ namespace JmesPath
     enum Precedence
     {
         Default    = 0,
-        LogicalOr  = 10, // ||
-        LogicalAnd = 15, // &&
-        Relational = 20, // == !=
-        Prefix     = 30, // !
+        Pipe       = 1, // |
+        LogicalOr  = 2, // ||
+        LogicalAnd = 3, // &&
+        Relational = 5, // > >= < <= == !=
+        Prefix     = 40, // !
+//        Access     = 50, // . []
+        Flatten    = 9,
+        // Everything above stops a projection.
+        Star       = 20,
+        Filter     = 21,
+        Dot        = 40,
+        Not        = 45,
+        Lbrace     = 50,
+        Lbracket   = 55,
+        Lparen     = 60,
     }
 
     partial class SyntaxErrorException : Exception
@@ -173,20 +241,82 @@ namespace JmesPath
             {
                 TokenKind.LParen, (token, parser) =>
                 {
-                    var result = parser.Parse(0);
+                    parser.Parse(0);
                     parser.Read(TokenKind.RParen, (TokenKind expected, (TokenKind, Token Token) actual) =>
                                     throw new SyntaxErrorException($"Expected {expected} token at {actual.Token.Index}."));
-                    return result;
+                    return default;
                 }
             },
-
-            { TokenKind.Bang, (_, parser) => !parser.Parse(Precedence.Prefix) },
-
-            { TokenKind.AmpersandAmpersand, Precedence.LogicalAnd, (a, rbp, p) => a && p.Parse(rbp) },
-            { TokenKind.PipePipe          , Precedence.LogicalOr , (a, b) => a || b },
+            // nud
+            { TokenKind.Literal           , (t, p) => p.State.Emit(t)},
+            { TokenKind.UnquotedString    , (t, p) => p.State.Emit(t, OpCode.Field)},
+            {
+                TokenKind.QuotedString, (t, p) =>
+                {
+                    p.State.Emit(t, OpCode.Field);
+                    if (p.Peek() is (TokenKind.LParen, var bt))
+                        throw new SyntaxErrorException($"Quoted identifier not allowed for function names (see offset {bt.Index}).");
+                    return default;
+                }
+            },
+            {
+                TokenKind.Star, (t, p) =>
+                {
+                    p.State.Emit(OpCode.Identity);
+                    if (p.Peek() is (TokenKind.RBracket, _))
+                    {
+                        p.State.Emit(OpCode.Identity);
+                    }
+                    else
+                    {
+                        ParseProjectionRhs(p, Precedence.Star);
+                    }
+                    return p.State.Emit(OpCode.ValueProjection);
+                }
+            },
+            { TokenKind.Bang, (_, p) => { p.Parse(Precedence.Prefix); return p.State.Emit(OpCode.Not); }},
+            { TokenKind.AmpersandAmpersand, Precedence.LogicalAnd, (a, rbp, p) => { p.Parse(rbp); return p.State.Emit(OpCode.And); } },
+            { TokenKind.PipePipe          , Precedence.LogicalOr , (a, b, c) => c.Emit(OpCode.Or)},
+            { TokenKind.Dot               , Precedence.Dot, (a, rbp, p) => { p.Parse(rbp); return p.State.Emit(OpCode.Dot); } },
+            { TokenKind.LRBracket         , Precedence.Lbracket, (Unit a, Precedence rbp, Parser p) => p.State.Emit(OpCode.Flatten) },
+            { TokenKind.LRBracket         , (t, p) => p.State.Emit(OpCode.Flatten) },
+            { TokenKind.LessThan          , Precedence.Relational, (a, b, c) => c.Emit(OpCode.LessThan) },
+            /*
             { TokenKind.EqualEqual        , Precedence.Relational, (a, b) => a == b },
             { TokenKind.BangEqual         , Precedence.Relational, (a, b) => a != b },
+            */
+            { TokenKind.At                , (t, p) => p.State.Emit(OpCode.CurrentNode) },
+            { TokenKind.RawString         , (t, p) => p.State.Emit(t) },
         };
+
+        static void ParseProjectionRhs(Parser parser, Precedence bp)
+        {
+            var (tk, _) = parser.Peek();
+            if (false /* self.BINDING_POWER[self._current_token()] < self._PROJECTION_STOP */)
+            {
+                // BP of 10 are all the tokens that stop a projection.
+                parser.State.Emit(OpCode.Identity);
+            }
+            else if (tk == TokenKind.LBracket || tk == TokenKind.LBracketQuestion)
+                parser.Parse(bp);
+            else if (tk == TokenKind.Dot)
+            {
+                parser.Read();
+                ParseDotRhs(parser, bp);
+            }
+        }
+
+        static void ParseDotRhs(Parser parser, Precedence bp)
+        {
+            // From the grammar:
+            // expression '.' ( identifier /
+            //                  multi-select-list /
+            //                  multi-select-hash /
+            //                  function-expression /
+            //                  *
+            // In terms of tokens that means that after a '.',
+            // you can have:
+        }
 
         Spec() { }
 
@@ -199,10 +329,13 @@ namespace JmesPath
         void Add(TokenKind type, Precedence precedence, InfixParselet prefix) =>
             _infixes.Add(type, (precedence, prefix));
 
-        void Add(TokenKind type, Precedence precedence, Func<bool, bool, bool> f) =>
+        void Add(TokenKind type, Precedence precedence, Func<Unit, Unit, ParseContext, Unit> f) =>
+            Add(type, precedence, (token, left, parser) => f(left, parser.Parse(precedence), parser.State));
+
+        void Add(TokenKind type, Precedence precedence, Func<Unit, Unit, Unit> f) =>
             Add(type, precedence, (token, left, parser) => f(left, parser.Parse(precedence)));
 
-        void Add(TokenKind type, Precedence precedence, Func<bool, Precedence, Parser, bool> f) =>
+        void Add(TokenKind type, Precedence precedence, Func<Unit, Precedence, Parser, Unit> f) =>
             Add(type, precedence, (token, left, parser) => f(left, precedence, parser));
 
         public PrefixParselet Prefix(Token token)
@@ -221,6 +354,7 @@ namespace JmesPath
     {
         None,
         IgnoreWhiteSpace,
+        NoEoiToken,
     }
 
     static partial class Scanner
@@ -411,7 +545,9 @@ namespace JmesPath
                     {
                         if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
                             break;
-                        if (!ignoreWhiteSpace)
+                        if (ignoreWhiteSpace)
+                            state = State.Scan;
+                        else
                             yield return Token(TokenKind.WhiteSpace, i - si);
                         goto restart;
                     }
@@ -478,7 +614,7 @@ namespace JmesPath
             }
 
             if (state == State.Scan || resetState)
-                yield break;
+                goto eoi;
 
             TokenKind kind;
 
@@ -486,17 +622,17 @@ namespace JmesPath
             {
                 case State.WhiteSpace:
                     if (ignoreWhiteSpace)
-                        yield break;
+                        goto eoi;
                     kind = TokenKind.WhiteSpace;
                     break;
-                case State.Number        : kind = TokenKind.Number        ; break;
-                case State.GreaterThan   : kind = TokenKind.GreaterThan   ; break;
-                case State.LessThan      : kind = TokenKind.LessThan      ; break;
-                case State.Bang          : kind = TokenKind.Bang          ; break;
-                case State.Ampersand     : kind = TokenKind.Ampersand     ; break;
-                case State.Pipe          : kind = TokenKind.Pipe          ; break;
-                case State.UnquotedString: kind = TokenKind.UnquotedString; break;
-                case State.LeftBracket   : kind = TokenKind.LBracket      ; break;
+                case State.Number           : kind = TokenKind.Number        ; break;
+                case State.GreaterThan      : kind = TokenKind.GreaterThan   ; break;
+                case State.LessThan         : kind = TokenKind.LessThan      ; break;
+                case State.Bang             : kind = TokenKind.Bang          ; break;
+                case State.Ampersand        : kind = TokenKind.Ampersand     ; break;
+                case State.Pipe             : kind = TokenKind.Pipe          ; break;
+                case State.UnquotedString   : kind = TokenKind.UnquotedString; break;
+                case State.LeftBracket      : kind = TokenKind.LBracket      ; break;
                 case State.RawString        :
                 case State.RawStringSlash   :
                 case State.QuotedString     :
@@ -513,7 +649,11 @@ namespace JmesPath
                     throw new Exception("Internal error due to unhandled state: " + state);
             }
 
-            yield return Token(kind, i);
+            yield return Token(kind, i - si);
+
+        eoi:
+            if ((options & ScanOptions.NoEoiToken) == 0)
+                yield return new Token(TokenKind.Eoi, i, 0);
         }
     }
 }

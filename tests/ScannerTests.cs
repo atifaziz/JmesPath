@@ -1,44 +1,36 @@
-using NUnit.Framework;
-
 namespace JmesPath.Tests
 {
     using System.Linq;
     using MoreLinq;
+    using NUnit.Framework;
 
     public class ScannerTests
     {
         [TestCase("@", TokenKind.At)]
         [TestCase("123", TokenKind.Number)]
-        [TestCase("123\t", TokenKind.Number)]
         [TestCase("-123", TokenKind.Number)]
         [TestCase("*", TokenKind.Star)]
         [TestCase(".", TokenKind.Dot)]
         [TestCase(",", TokenKind.Comma)]
         [TestCase(":", TokenKind.Colon)]
         [TestCase("&", TokenKind.Ampersand)]
-        [TestCase("&\t", TokenKind.Ampersand)]
         [TestCase("&&", TokenKind.AmpersandAmpersand)]
         [TestCase("|", TokenKind.Pipe)]
-        [TestCase("|\t", TokenKind.Pipe)]
         [TestCase("||", TokenKind.PipePipe)]
         [TestCase("(", TokenKind.LParen)]
         [TestCase(")", TokenKind.RParen)]
         [TestCase("{", TokenKind.LBrace)]
         [TestCase("}", TokenKind.RBrace)]
         [TestCase("[", TokenKind.LBracket)]
-        [TestCase("[\t", TokenKind.LBracket)]
         [TestCase("]", TokenKind.RBracket)]
         [TestCase("[]", TokenKind.LRBracket)]
         [TestCase("[?", TokenKind.LBracketQuestion)]
         [TestCase(">", TokenKind.GreaterThan)]
-        [TestCase(">\t", TokenKind.GreaterThan)]
         [TestCase(">=", TokenKind.GreaterThanEqual)]
         [TestCase("<", TokenKind.LessThan)]
-        [TestCase("<\t", TokenKind.LessThan)]
         [TestCase("<=", TokenKind.LessThanEqual)]
         [TestCase("==", TokenKind.EqualEqual)]
         [TestCase("!", TokenKind.Bang)]
-        [TestCase("!\t", TokenKind.Bang)]
         [TestCase("!=", TokenKind.BangEqual)]
         [TestCase(@"'foo bar'", TokenKind.RawString)]
         [TestCase(@"'foo\\bar'", TokenKind.RawString)]
@@ -49,30 +41,41 @@ namespace JmesPath.Tests
         [TestCase("foo_bar", TokenKind.UnquotedString)]
         public void Tokens(string path, TokenKind kind)
         {
-            var tokens = Scanner.Scan(path, ScanOptions.IgnoreWhiteSpace);
-            var token = tokens.Single();
-            Assert.That(token.Kind, Is.EqualTo(kind));
-            Assert.That(token.Index, Is.EqualTo(0));
-            var trimmed = path.Trim();
-            Assert.That(token.Length, Is.EqualTo(trimmed.Length));
-            Assert.That(token.Substring(trimmed), Is.EqualTo(trimmed));
+            foreach (var (i, s) in new[]
+            {
+                (0, path),
+                (1, $"\t{path}"),
+                (0, $"{path}\t"),
+                (1, $"\t{path}\t"),
+            })
+            {
+                var tokens = Scanner.Scan(s, ScanOptions.IgnoreWhiteSpace | ScanOptions.NoEoiToken);
+                var token = tokens.Single();
+                Assert.That(token.Kind, Is.EqualTo(kind));
+                Assert.That(token.Index, Is.EqualTo(i));
+                var trimmed = s.Trim();
+                Assert.That(token.Length, Is.EqualTo(trimmed.Length));
+                Assert.That(token.Substring(s), Is.EqualTo(trimmed));
+            }
         }
 
-        [TestCase(" \t\r\n")]
+        [TestCase("@ \t\r\n@")]
         public void WhiteSpace(string input)
         {
-            var tokens = Scanner.Scan(input);
-            var token = tokens.Single();
+            var tokens = Scanner.Scan(input, ScanOptions.NoEoiToken);
+            var token = tokens.Single(t => t.Kind == TokenKind.WhiteSpace);
             Assert.That(token.Kind, Is.EqualTo(TokenKind.WhiteSpace));
-            Assert.That(token.Index, Is.EqualTo(0));
-            Assert.That(token.Length, Is.EqualTo(input.Length));
-            Assert.That(token.Substring(input), Is.EqualTo(input));
+            Assert.That(token.Index, Is.EqualTo(1));
+            Assert.That(token.Length, Is.EqualTo(4));
+            Assert.That(token.Substring(input), Is.EqualTo(" \t\r\n"));
         }
 
         [TestCase(" \t\r\n")]
         public void IgnoreWhiteSpace(string input)
         {
-            Assert.That(Scanner.Scan(input, ScanOptions.IgnoreWhiteSpace), Is.Empty);
+            Assert.That(Scanner.Scan(input, ScanOptions.IgnoreWhiteSpace
+                                          | ScanOptions.NoEoiToken),
+                        Is.Empty);
         }
 
         [TestCase("$", "Unexpected at offset 0: $")]
