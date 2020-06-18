@@ -4,6 +4,7 @@ namespace JmesPath
     public partial class Scanner {}
     public partial class SyntaxErrorException {}
     public partial class Expression {}
+    public partial class ParsedExpression {}
+    public partial struct Op {}
     public partial struct Unit {}
-    public partial struct TokenOrCode {}
 }
