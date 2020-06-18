@@ -81,6 +81,8 @@ namespace JmesPath
         NotEqual,
         Equal,
         Const,
+        MkRef,
+        LdRef,
     }
 
     //
@@ -95,13 +97,13 @@ namespace JmesPath
 
     static partial class Expression
     {
-        public static ParsedExpression Evaluate(string expression)
+        public static ParsedExpression Parse(string expression)
         {
             var context = new ParseContext(expression);
             Evaluate(expression, context);
             return new ParsedExpression(expression,
-                                  new ReadOnlyCollection<Token>(context.Tokens),
-                                  new ReadOnlyCollection<Op>(context.Ops));
+                                        new ReadOnlyCollection<Token>(context.Tokens),
+                                        new ReadOnlyCollection<Op>(context.Ops));
         }
 
         static void Evaluate(string expression, ParseContext context) =>
@@ -135,9 +137,9 @@ namespace JmesPath
         {
             var sb = new StringBuilder();
 
-            foreach (var (code, arg) in Ops)
+            foreach (var (level, code, arg) in Ops)
             {
-                sb.Append(code);
+                sb.Append(level).Append(": ").Append(code);
                 switch (code)
                 {
                     case OpCode.Field:
@@ -163,16 +165,16 @@ namespace JmesPath
 
     readonly partial struct Op
     {
+        public readonly int Level;
         public readonly OpCode Code;
         public readonly int Arg;
 
-        public Op(OpCode code, int arg = 0) => (Code, Arg) = (code, arg);
-        public override string ToString() => $"{Code} ({Arg})";
+        public Op(int level, OpCode code, int arg = 0) =>
+            (Level, Code, Arg) = (level, code, arg);
+        public override string ToString() => $"{Level}: {Code} ({Arg})";
 
-        public void Deconstruct(out OpCode code, out int arg) =>
-            (code, arg) = (Code, Arg);
-
-        public static implicit operator Op(OpCode code) => new Op(code);
+        public void Deconstruct(out int level, out OpCode code, out int arg) =>
+            (level, code, arg) = (Level, Code, Arg);
     }
 
     sealed class ParseContext
@@ -185,10 +187,15 @@ namespace JmesPath
         public List<Token> Tokens { get; } = new List<Token>();
         public List<Op> Ops { get; } = new List<Op>();
 
+        public int Level { get; private set; }
+
+        public void Push() => Level++;
+        public void Pop() => Level = Level - 1 is {} n ? n : throw new InvalidOperationException();
+
         public Op PeekOp(int index = 0) => Ops[index < 0 ? Ops.Count + index : index];
 
         public int Emit(Token token) { Tokens.Add(token); return Tokens.Count - 1; }
-        public void Emit(OpCode code, int arg = 0) => Ops.Add(new Op(code, arg));
+        public void Emit(OpCode code, int arg = 0) => Ops.Add(new Op(Level, code, arg));
     }
 
     static class TokenKindPrecedence
@@ -493,7 +500,7 @@ namespace JmesPath
                 TokenKind.LRBracket, Precedence.Flatten, (rbp, p) =>
                 {   // ...left
                     p.Emit(OpCode.Flatten);
-                    p.Parse(rbp); // right
+                    ParseProjectionRhs(p, rbp); // right
                     p.Emit(OpCode.Projection);
                 }
             },
@@ -568,7 +575,8 @@ namespace JmesPath
                 }
                 else
                 {
-                    parser.Emit(OpCode.Token, number);
+                    var i = NumberToInt32(parser.State.SourceText, number.Index, number.Length);
+                    parser.Emit(OpCode.Const, i);
                     parser.Read(TokenKind.RBracket);
                     return IndexOrSlice.Index;
                 }
@@ -593,13 +601,33 @@ namespace JmesPath
                         break;
                     case (TokenKind.Number, var token):
                         parser.Read();
-                        parser.Emit(OpCode.Token, token);
+                        var n = NumberToInt32(parser.State.SourceText, token.Index, token.Length);
+                        parser.Emit(OpCode.Const, n);
                         break;
                     case var (_, token):
                         throw new SyntaxErrorException($"Unexpected token <{token.Kind}> at offset {token.Index}.");
                 }
             }
             parser.Emit(OpCode.Slice);
+
+        }
+
+        static int NumberToInt32(string s, int i, int len)
+        {
+            var ei = i + len;
+            var neg = false;
+            if (s[i] == '-')
+            {
+                i++;
+                neg = true;
+            }
+            var n = 0;
+            checked
+            {
+                for (; i < ei; i++)
+                    n = n * 10 + (s[i] - '0');
+            }
+            return neg ? -n : n;
         }
 
         static void TokenLedFilter(Parser parser) =>
@@ -609,13 +637,23 @@ namespace JmesPath
         {
             // Filters are projections.
             // ...left
+            parser.Emit(OpCode.MkRef);
+            parser.State.Push();
             parser.Parse(); // condition
+            parser.State.Pop();
+            parser.Emit(OpCode.LdRef);
             parser.Read(TokenKind.RBracket);
             // right...
             if (parser.Peek() is (TokenKind.LRBracket, _))
+            {
                 parser.Emit(OpCode.Identity);
+            }
             else
+            {
+                parser.Emit(OpCode.MkRef);
                 ParseProjectionRhs(parser, rbp);
+                parser.Emit(OpCode.LdRef);
+            }
             parser.Emit(OpCode.FilterProjection);
         }
 
@@ -721,10 +759,22 @@ namespace JmesPath
         readonly Dictionary<TokenKind, (Precedence, InfixParselet)> _infixes = new Dictionary<TokenKind, (Precedence, InfixParselet)>();
 
         void Add(TokenKind type, Action<Token, Parser> prefix) =>
-            _prefixes.Add(type, (t, p) => { prefix(t, p); return default; });
+            _prefixes.Add(type, (t, p) =>
+            {
+                //p.State.Push();
+                prefix(t, p);
+                //p.State.Pop();
+                return default;
+            });
 
         void Add(TokenKind type, Precedence precedence, Action<Precedence, Parser> infix) =>
-            _infixes.Add(type, (precedence, (t, _, p) => { infix(precedence, p); return default; }));
+            _infixes.Add(type, (precedence, (t, _, p) =>
+            {
+                //p.State.Push();
+                infix(precedence, p);
+                //p.State.Pop();
+                return default;
+            }));
         /*
         void Add(TokenKind type, Precedence precedence, Func<Unit, Unit, ParseContext, Unit> f) =>
             Add(type, precedence, (token, left, parser) => f(left, parser.Parse(precedence), parser.State));
