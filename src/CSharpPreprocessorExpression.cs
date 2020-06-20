@@ -54,7 +54,7 @@ namespace JmesPath
     {
         Nop,
         Token,
-        CurrentNode,
+        Current,
         And,
         Or,
         Not,
@@ -442,7 +442,7 @@ namespace JmesPath
                     }
                 }
             },
-            { TokenKind.At       , (_, p) => p.Emit(OpCode.CurrentNode) },
+            { TokenKind.At       , (_, p) => p.Emit(OpCode.Current) },
             { TokenKind.Ampersand, (_, p) => { p.Parse(Precedence.ExpRef); p.Emit(OpCode.Reference); } },
             // led
             {

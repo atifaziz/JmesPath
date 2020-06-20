@@ -338,6 +338,13 @@ namespace JmesPath.Tests
         public override T Evaluate<T>(T value, IJsonSystem<T> system) => value;
     }
 
+    sealed class CurrentNode : Node
+    {
+        public static readonly CurrentNode Value = new CurrentNode();
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system) => value;
+    }
+
     sealed class StringNode : Node
     {
         public string Value { get; }
@@ -509,10 +516,7 @@ namespace JmesPath.Tests
         public Node Literal(string s, int index, int length) =>
             new LiteralNode(s.Substring(index, length));
 
-        public Node CurrentNode()
-        {
-            throw new NotImplementedException();
-        }
+        public Node Current() => CurrentNode.Value;
 
         public Node Not(Node expression) =>
             new NotNode(expression);

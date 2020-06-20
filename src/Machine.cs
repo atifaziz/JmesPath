@@ -54,7 +54,7 @@ namespace JmesPath
         public void Literal(string s, int index, int length) =>
             Push(_tree.Literal(s, index, length));
 
-        public void CurrentNode() => Push(_tree.CurrentNode());
+        public void Current() => Push(_tree.Current());
 
         public void Not() => Push(_tree.Not(Pop()));
 
@@ -127,7 +127,7 @@ namespace JmesPath
         T UnquotedString(string s, int index, int length);
         T QuotedString(string s, int index, int length);
         T Literal(string s, int index, int length);
-        T CurrentNode();
+        T Current();
         T Not(T expression);
         T And(T left, T right);
         T Or(T left, T right);
@@ -159,7 +159,7 @@ namespace JmesPath
         void UnquotedString(string s, int index, int length);
         void QuotedString(string s, int index, int length);
         void Literal(string s, int index, int length);
-        void CurrentNode();
+        void Current();
         void Not();
         void And();
         void Or();
@@ -232,7 +232,7 @@ namespace JmesPath
                                 throw new Exception("Internal implementation error.");
                         }
                         break;
-                    case OpCode.CurrentNode: projector.CurrentNode(); break;
+                    case OpCode.Current: projector.Current(); break;
                     case OpCode.Not: projector.Not(); break;
                     case OpCode.And: projector.And(); break;
                     case OpCode.Or: projector.Or(); break;

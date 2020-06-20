@@ -145,8 +145,8 @@ namespace JmesPath.Tests
             0: SubExpression")]
         [TestCase(@"f(@ && @)", @"
             0: Field f
-            0: CurrentNode
-            0: CurrentNode
+            0: Current
+            0: Current
             0: And
             0: Const 1
             0: Function")]
@@ -177,14 +177,14 @@ namespace JmesPath.Tests
             0: LdRef
             0: FilterProjection
             0: Field sort
-            0: CurrentNode
+            0: Current
             0: Const 1
             0: Function
             0: Pipe
             0: Token WashingtonCities
             0: Field join
             0: Literal ', '
-            0: CurrentNode
+            0: Current
             0: Const 2
             0: Function
             0: Const 1
