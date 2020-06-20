@@ -19,6 +19,7 @@ namespace JmesPath.Tests
         T String(string value);
         bool GetMemberValue(T obj, string name, out T value);
         bool GetBooleanValue(T value);
+        double GetNumberValue(T value);
         int GetLength(T value);
         T Index(T value, int index);
     }
@@ -265,6 +266,15 @@ namespace JmesPath.Tests
                             arr: _ => null,
                             obj: _ => null)
                     is {} bit ? bit : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+
+            public double GetNumberValue(JsonValue value) =>
+                value.Match(nul: (double?)null,
+                            bit: _ => null,
+                            num: v => v,
+                            str: _ => null,
+                            arr: _ => null,
+                            obj: _ => null)
+                    is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
             public int GetLength(JsonValue value) =>
                 value.Match(nul: (int?)null,
