@@ -512,10 +512,8 @@ namespace JmesPath.Tests
             throw new NotImplementedException();
         }
 
-        public Node Not(Node expression)
-        {
-            throw new NotImplementedException();
-        }
+        public Node Not(Node expression) =>
+            new NotNode(expression);
 
         public Node And(Node left, Node right)
         {
