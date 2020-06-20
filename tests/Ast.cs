@@ -311,6 +311,7 @@ namespace JmesPath.Tests
             switch (system.GetKind(value))
             {
                 case JsonValueKind.Number:
+                    return true;
                 case JsonValueKind.Null:
                     return false;
                 case JsonValueKind.Boolean:
