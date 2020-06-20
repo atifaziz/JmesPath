@@ -401,8 +401,10 @@ namespace JmesPath.Tests
         public AndNode(Node left, Node right) : base(left, right) {}
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system)
-            => system.IsTruthy(Left.Evaluate(value, system))
-            && system.IsTruthy(Right.Evaluate(value, system)) ? system.True : system.False;
+        {
+            var l = Left.Evaluate(value, system);
+            return system.IsTruthy(l) && Right.Evaluate(value, system) is {} r ? r : l;
+        }
     }
 
     sealed class OrNode : BinaryNode
@@ -410,8 +412,8 @@ namespace JmesPath.Tests
         public OrNode(Node left, Node right) : base(left, right) { }
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system)
-            => system.IsTruthy(Left.Evaluate(value, system))
-            && system.IsTruthy(Right.Evaluate(value, system)) ? system.True : system.False;
+            => Left.Evaluate(value, system) is {} l && system.IsTruthy(l) ? l
+             : Right.Evaluate(value, system);
     }
 
     sealed class SubExpressionNode : BinaryNode
@@ -515,15 +517,11 @@ namespace JmesPath.Tests
         public Node Not(Node expression) =>
             new NotNode(expression);
 
-        public Node And(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node And(Node left, Node right) =>
+            new AndNode(left, right);
 
-        public Node Or(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node Or(Node left, Node right) =>
+            new OrNode(left, right);
 
         public Node GreaterThan(Node left, Node right)
         {
