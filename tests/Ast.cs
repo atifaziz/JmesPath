@@ -89,6 +89,8 @@ namespace JmesPath.Tests
         bool ICollection<KeyValuePair<string, JsonValue>>.Remove(KeyValuePair<string, JsonValue> item) => throw ReadOnlyError();
         void IDictionary<string, JsonValue>.Add(string key, JsonValue value) => throw ReadOnlyError();
         bool IDictionary<string, JsonValue>.Remove(string key) => throw ReadOnlyError();
+
+        public override string ToString() => JsonSerializer.Serialize(this);
     }
 
     struct JsonValue : IEquatable<JsonValue>
@@ -210,6 +212,14 @@ namespace JmesPath.Tests
 
         public static bool operator ==(JsonValue left, JsonValue right) => left.Equals(right);
         public static bool operator !=(JsonValue left, JsonValue right) => !left.Equals(right);
+
+        public override string ToString() =>
+            Match("null",
+                  bit: v => v ? "true" : "false",
+                  num: v => JsonSerializer.Serialize(v),
+                  str: v => JsonSerializer.Serialize(v),
+                  arr: v => JsonSerializer.Serialize(v),
+                  obj: v => v.ToString());
     }
 
     static class JsonSystem
