@@ -95,10 +95,8 @@ namespace JmesPath
         public void Projection() =>
             Binary((tree, left, right) => tree.Projection(left, right));
 
-        public void Index(int index)
-        {
-            _tree.Index(Pop(), index);
-        }
+        public void Index(int index) =>
+            _stack.Push(_tree.Index(Pop(), index));
 
         public void Slice(int? start, int? stop, int? step)
         {

@@ -20,6 +20,7 @@ namespace JmesPath.Tests
         bool GetMemberValue(T obj, string name, out T value);
         bool GetBooleanValue(T value);
         int GetLength(T value);
+        T Index(T value, int index);
     }
 
     struct JsonObject : IDictionary<string, JsonValue>
@@ -263,6 +264,16 @@ namespace JmesPath.Tests
                             arr: arr => arr.Count,
                             obj: obj => obj.Count)
                     is {} len ? len : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+
+            public JsonValue Index(JsonValue value, int index) =>
+                value.Match(index,
+                            nul: i => (JsonValue?)null,
+                            bit: (i, v) => null,
+                            num: (i, v) => null,
+                            str: (i, v) => null,
+                            arr: (i, v) => v[i],
+                            obj: (i, v) => null)
+                    is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
         }
 
         public static bool IsTruthy<T>(this IJsonSystem<T> system, T value)
@@ -388,6 +399,25 @@ namespace JmesPath.Tests
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
             Right.Evaluate(Left.Evaluate(value, system), system);
+    }
+
+    sealed class IndexNode : Node
+    {
+        public Node Source { get; }
+        public int Index { get; }
+
+        public IndexNode(Node source, int index) =>
+            (Source, Index) = (source, index);
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            var result = Source.Evaluate(value, system);
+            if (system.GetKind(result) != JsonValueKind.Array)
+                return system.Null;
+            var length = system.GetLength(result);
+            var index = Index is {} i && i >= 0 ? i : length + i;
+            return index < 0 ? system.Null : system.Index(result, index);
+        }
     }
 
     sealed class TreeProjector : ITreeProjector<Node>
@@ -540,10 +570,8 @@ namespace JmesPath.Tests
             throw new NotImplementedException();
         }
 
-        public Node Index(Node source, int index)
-        {
-            throw new NotImplementedException();
-        }
+        public Node Index(Node source, int index) =>
+            new IndexNode(source, index);
 
         public Node Slice(int? start, int? stop, int? step)
         {
