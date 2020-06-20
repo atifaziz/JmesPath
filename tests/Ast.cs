@@ -135,13 +135,20 @@ namespace JmesPath.Tests
             return Object(obj);
         }
 
-        public T Match<T>(T nul = default,
-                          Func<bool, T> bit = null,
-                          Func<double, T> num = null,
-                          Func<string, T> str = null,
-                          Func<IList<JsonValue>, T> arr = null,
-                          Func<IDictionary<string, JsonValue>, T> obj = null) =>
-            Match(() => nul, bit, num, str, arr, obj);
+        public bool GetBoolean() =>
+            Kind == JsonValueKind.Boolean ? _kind == K.True : throw new InvalidOperationException();
+
+        public double GetNumber() =>
+            Kind == JsonValueKind.Number ? _number : throw new InvalidOperationException();
+
+        public string GetString() =>
+            Kind == JsonValueKind.String ? (string)_object : throw new InvalidOperationException();
+
+        public IList<JsonValue> GetArray() =>
+            Kind == JsonValueKind.Array ? (IList<JsonValue>)_object : throw new InvalidOperationException();
+
+        public IDictionary<string, JsonValue> GetObject() =>
+            Kind == JsonValueKind.Object ? (IDictionary<string, JsonValue>)_object : throw new InvalidOperationException();
 
         public T Match<T>(Func<T> nul = null,
                           Func<bool, T> bit = null,
@@ -201,9 +208,9 @@ namespace JmesPath.Tests
                      nul: _ => true,
                      bit: (a, v) => true,
                      num: (a, v) => Math.Abs(a._number - v) < double.Epsilon,
-                     str: (a, v) => (string)a._object == v,
-                     arr: (a, v) => v.SequenceEqual((IList<JsonValue>)a._object),
-                     obj: (a, v) => v.SequenceEqual((IDictionary<string, JsonValue>)a._object));
+                     str: (a, v) => a.GetString() == v,
+                     arr: (a, v) => v.SequenceEqual(a.GetArray()),
+                     obj: (a, v) => v.SequenceEqual(a.GetObject()));
 
         public override bool Equals(object obj)
         {
@@ -217,7 +224,7 @@ namespace JmesPath.Tests
         public static bool operator !=(JsonValue left, JsonValue right) => !left.Equals(right);
 
         public override string ToString() =>
-            Match("null",
+            Match(nul: () => "null",
                   bit: v => v ? "true" : "false",
                   num: v => JsonSerializer.Serialize(v),
                   str: v => JsonSerializer.Serialize(v),
@@ -248,72 +255,38 @@ namespace JmesPath.Tests
             {
                 if (obj.Kind != JsonValueKind.Object)
                     throw new ArgumentOutOfRangeException(nameof(obj), obj, null);
-                if (obj.Match(name, obj: (n, obj) => obj.TryGetValue(n, out var v) ? v : (JsonValue?)null) is {} v)
-                {
-                    value = v;
-                    return true;
-                }
-                else
+                if (!obj.GetObject().TryGetValue(name, out var v))
                 {
                     value = default;
                     return false;
                 }
+                value = v;
+                return true;
             }
 
             public bool GetBooleanValue(JsonValue value) =>
-                value.Match(nul: (bool?)null,
-                            bit: bit => bit,
-                            num: _ => null,
-                            str: _ => null,
-                            arr: _ => null,
-                            obj: _ => null)
-                    is {} bit ? bit : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                value.Kind == JsonValueKind.Boolean ? value.GetBoolean() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
             public double GetNumberValue(JsonValue value) =>
-                value.Match(nul: (double?)null,
-                            bit: _ => null,
-                            num: v => v,
-                            str: _ => null,
-                            arr: _ => null,
-                            obj: _ => null)
-                    is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                value.Kind == JsonValueKind.Number ? value.GetNumber() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
             public string GetStringValue(JsonValue value) =>
-                value.Match(nul: (string)null,
-                            bit: _ => null,
-                            num: _ => null,
-                            str: v => v,
-                            arr: _ => null,
-                            obj: _ => null)
-                    is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                value.Kind == JsonValueKind.String ? value.GetString() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
             public int GetLength(JsonValue value) =>
-                value.Match(nul: (int?)null,
-                            bit: _ => null,
-                            num: _ => null,
-                            str: str => str.Length,
-                            arr: arr => arr.Count,
-                            obj: obj => obj.Count)
-                    is {} len ? len : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                value.Kind switch
+                {
+                    JsonValueKind.String => value.GetString().Length,
+                    JsonValueKind.Array => value.GetArray().Count,
+                    JsonValueKind.Object => value.GetObject().Count,
+                    _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+                };
 
             public JsonValue Index(JsonValue value, int index) =>
-                value.Match(index,
-                            nul: i => (JsonValue?)null,
-                            bit: (i, v) => null,
-                            num: (i, v) => null,
-                            str: (i, v) => null,
-                            arr: (i, v) => v[i],
-                            obj: (i, v) => null)
-                    is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                value.Kind == JsonValueKind.Array ? value.GetArray()[index] : throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
             public IEnumerable<JsonValue> GetArrayValues(JsonValue value) =>
-                value.Match(nul: (IEnumerable<JsonValue>)null,
-                            bit: _ => null,
-                            num: _ => null,
-                            str: _ => null,
-                            arr: v => v,
-                            obj: _ => null)
-                    is {} len ? len : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+                value.Kind == JsonValueKind.Array ? value.GetArray() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
         }
 
         public static T Boolean<T>(this IJsonSystem<T> system, bool value) =>
