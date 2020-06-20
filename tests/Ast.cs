@@ -90,7 +90,7 @@ namespace JmesPath.Tests
         bool IDictionary<string, JsonValue>.Remove(string key) => throw ReadOnlyError();
     }
 
-    struct JsonValue
+    struct JsonValue : IEquatable<JsonValue>
     {
         enum K : byte { Null, False, True, Number, String, Object, Array }
 
@@ -188,6 +188,27 @@ namespace JmesPath.Tests
             System.Text.Json.JsonValueKind.False => False,
             _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
         };
+
+        public bool Equals(JsonValue other)
+            => _kind == other._kind
+            && Match(other,
+                     nul: _ => true,
+                     bit: (a, v) => true,
+                     num: (a, v) => Math.Abs(a._number - v) < double.Epsilon,
+                     str: (a, v) => (string)a._object == v,
+                     arr: (a, v) => v.SequenceEqual((IList<JsonValue>)a._object),
+                     obj: (a, v) => v.SequenceEqual((IDictionary<string, JsonValue>)a._object));
+
+        public override bool Equals(object obj)
+        {
+            return obj is JsonValue other && Equals(other);
+        }
+
+        public override int GetHashCode() =>
+            HashCode.Combine((int) _kind, _number, _object);
+
+        public static bool operator ==(JsonValue left, JsonValue right) => left.Equals(right);
+        public static bool operator !=(JsonValue left, JsonValue right) => !left.Equals(right);
     }
 
     static class JsonSystem
