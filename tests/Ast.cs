@@ -20,8 +20,10 @@ namespace JmesPath.Tests
         bool GetMemberValue(T obj, string name, out T value);
         bool GetBooleanValue(T value);
         double GetNumberValue(T value);
+        string GetStringValue(T value);
         int GetLength(T value);
         T Index(T value, int index);
+        IEnumerable<T> GetArrayValues(T value);
     }
 
     struct JsonObject : IDictionary<string, JsonValue>
@@ -276,6 +278,15 @@ namespace JmesPath.Tests
                             obj: _ => null)
                     is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
 
+            public string GetStringValue(JsonValue value) =>
+                value.Match(nul: (string)null,
+                            bit: _ => null,
+                            num: _ => null,
+                            str: v => v,
+                            arr: _ => null,
+                            obj: _ => null)
+                    is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+
             public int GetLength(JsonValue value) =>
                 value.Match(nul: (int?)null,
                             bit: _ => null,
@@ -294,7 +305,19 @@ namespace JmesPath.Tests
                             arr: (i, v) => v[i],
                             obj: (i, v) => null)
                     is {} r ? r : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+
+            public IEnumerable<JsonValue> GetArrayValues(JsonValue value) =>
+                value.Match(nul: (IEnumerable<JsonValue>)null,
+                            bit: _ => null,
+                            num: _ => null,
+                            str: _ => null,
+                            arr: v => v,
+                            obj: _ => null)
+                    is {} len ? len : throw new ArgumentOutOfRangeException(nameof(value), value, null);
         }
+
+        public static T Boolean<T>(this IJsonSystem<T> system, bool value) =>
+            value ? system.True : system.False;
 
         public static bool IsTruthy<T>(this IJsonSystem<T> system, T value)
         {
@@ -423,6 +446,29 @@ namespace JmesPath.Tests
              : Right.Evaluate(value, system);
     }
 
+    sealed class EqualNode : BinaryNode
+    {
+        public EqualNode(Node left, Node right) : base(left, right) { }
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
+            system.Boolean(Left.Evaluate(value, system) is {} l
+            && Right.Evaluate(value, system) is {} r
+            && system.GetKind(l) switch
+               {
+                   JsonValueKind.Null =>
+                       system.GetKind(r) == JsonValueKind.Null,
+                   JsonValueKind.Boolean =>
+                       system.GetKind(r) == JsonValueKind.Boolean && system.GetBooleanValue(l) == system.GetBooleanValue(r),
+                   JsonValueKind.Number =>
+                       system.GetKind(r) == JsonValueKind.Number && Math.Abs(system.GetNumberValue(l) - system.GetNumberValue(r)) < double.Epsilon,
+                   JsonValueKind.String =>
+                       system.GetKind(r) == JsonValueKind.String && system.GetStringValue(l) == system.GetStringValue(r),
+                   JsonValueKind.Array => throw new NotImplementedException(),
+                   JsonValueKind.Object => throw new NotImplementedException(),
+                       _ => throw new ArgumentOutOfRangeException()
+               });
+    }
+
     sealed class SubExpressionNode : BinaryNode
     {
         public SubExpressionNode(Node left, Node right) : base(left, right) {}
@@ -547,10 +593,8 @@ namespace JmesPath.Tests
             throw new NotImplementedException();
         }
 
-        public Node Equal(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node Equal(Node left, Node right) =>
+            new EqualNode(left, right);
 
         public Node NotEqual(Node left, Node right)
         {
