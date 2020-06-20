@@ -382,6 +382,14 @@ namespace JmesPath.Tests
             && system.IsTruthy(Right.Evaluate(value, system)) ? system.True : system.False;
     }
 
+    sealed class SubExpressionNode : BinaryNode
+    {
+        public SubExpressionNode(Node left, Node right) : base(left, right) {}
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
+            Right.Evaluate(Left.Evaluate(value, system), system);
+    }
+
     sealed class TreeProjector : ITreeProjector<Node>
     {
         public Node RawString(string s, int index, int length)
@@ -547,10 +555,8 @@ namespace JmesPath.Tests
             throw new NotImplementedException();
         }
 
-        public Node SubExpression(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node SubExpression(Node left, Node right) =>
+            new SubExpressionNode(left, right);
 
         public Node Pipe(Node left, Node right)
         {
