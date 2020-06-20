@@ -360,7 +360,7 @@ namespace JmesPath.Tests
         public Node Left { get; }
         public Node Right { get; }
 
-        public BinaryNode(Node left, Node right) =>
+        protected BinaryNode(Node left, Node right) =>
             (Left, Right) = (left, right);
     }
 
