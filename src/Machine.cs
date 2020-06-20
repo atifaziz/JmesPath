@@ -205,6 +205,9 @@ namespace JmesPath
             };
 
             foreach (var (_, code, arg) in pe.Ops)
+                Do(code, arg);
+
+            void Do(OpCode code, int arg)
             {
                 switch (code)
                 {
@@ -242,7 +245,7 @@ namespace JmesPath
                     case OpCode.Equal: projector.Equal(); break;
                     case OpCode.NotEqual: projector.NotEqual(); break;
                     case OpCode.Flatten: projector.Flatten(); break;
-                    case OpCode.Field: projector.Field(); break;
+                    case OpCode.Field: Do(OpCode.Token, arg); projector.Field(); break;
                     case OpCode.Identity: projector.Identity(); break;
                     case OpCode.ValueProjection: projector.ValueProjection(); break;
                     case OpCode.MultiSelectList:
