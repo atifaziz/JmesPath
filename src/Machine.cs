@@ -22,16 +22,16 @@ namespace JmesPath
             return (left, right);
         }
 
-        void Binary(Action<ITreeProjector<T>, T, T> ta)
+        void Binary(Func<ITreeProjector<T>, T, T, T> ta)
         {
             var (right, left) = (_stack.Pop(), _stack.Pop());
-            ta(_tree, left, right);
+            _stack.Push(ta(_tree, left, right));
         }
 
-        void Ternary(Action<ITreeProjector<T>, T, T, T> ta)
+        void Ternary(Func<ITreeProjector<T>, T, T, T, T> ta)
         {
             var (c, b, a) = (_stack.Pop(), _stack.Pop(), _stack.Pop());
-            ta(_tree, a, b, c);
+            _stack.Push(ta(_tree, a, b, c));
         }
         
         T[] Pop(int count)
