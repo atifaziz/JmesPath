@@ -13,6 +13,8 @@ namespace JmesPath.Tests
         [TestCaseSource(nameof(TestData), new object[] { true })]
         public void Result(JsonElement given, string expression, JsonElement result)
         {
+            var actual = Evaluate(given, expression);
+            Assert.That(actual, Is.EqualTo(JsonValue.From(result)));
         }
 
         [TestCaseSource(nameof(TestData), new object[] { false })]
