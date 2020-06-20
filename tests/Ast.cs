@@ -450,57 +450,57 @@ namespace JmesPath.Tests
 
         public Node CurrentNode()
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Not(Node expression)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node And(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Or(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node GreaterThan(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node GreaterThanEqual(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node LessThan(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node LessThanEqual(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Equal(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node NotEqual(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Flatten(Node source)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Field(Node name) => new FieldNode((StringNode)name);
@@ -509,57 +509,57 @@ namespace JmesPath.Tests
 
         public Node ValueProjection(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node MultiSelectList(Node[] list)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node MultiSelectHash(KeyValuePair<string, Node>[] hash)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node FilterProjection(Node left, Node right, Node condition)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Projection(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Index(Node source, int index)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Slice(int? start, int? stop, int? step)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Reference()
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node SubExpression(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public Node Pipe(Node left, Node right)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public void Function(Node name, Node[] args)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
     }
 }
