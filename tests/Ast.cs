@@ -5,6 +5,7 @@ namespace JmesPath.Tests
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
+    using System.Text.Json;
 
     enum JsonValueKind { Null, Boolean, Number, String, Array, Object }
 
@@ -170,6 +171,23 @@ namespace JmesPath.Tests
                 K.Array  => arr is {} ? arr(arg, (IList<JsonValue>)_object) : throw new InvalidOperationException(),
                 K.Object => obj is {} ? obj(arg, (IDictionary<string, JsonValue>)_object) : throw new InvalidOperationException(),
             };
+
+        public static JsonValue From(JsonElement e) => e.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.Null => Null,
+            System.Text.Json.JsonValueKind.Undefined => Null,
+            System.Text.Json.JsonValueKind.Object =>
+                Object(new JsonObject(e.EnumerateObject()
+                                       .Select(m => KeyValuePair.Create(m.Name, From(m.Value)))
+                                       .ToList())),
+            System.Text.Json.JsonValueKind.Array =>
+                Array(e.EnumerateArray().Select(From).ToList()),
+            System.Text.Json.JsonValueKind.String => String(e.GetString()),
+            System.Text.Json.JsonValueKind.Number => Number(e.GetDouble()),
+            System.Text.Json.JsonValueKind.True => True,
+            System.Text.Json.JsonValueKind.False => False,
+            _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
+        };
     }
 
     static class JsonSystem

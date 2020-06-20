@@ -18,10 +18,26 @@ namespace JmesPath.Tests
         [TestCaseSource(nameof(TestData), new object[] { false })]
         public void Error(JsonElement given, string expression, string error)
         {
-            //var pe = Expression.Parse(expression);
-            //var projector = new TreeProjector<Node>(new TreeProjector());
-            //Machine.Run(pe, projector);
-            //projector.Result.Evaluate();
+            switch (error)
+            {
+                case "syntax":
+                    Assert.Throws<SyntaxErrorException>(() => Evaluate(given, expression));
+                    break;
+                case "invalid-type":
+                    throw new NotImplementedException();
+                case "invalid-value":
+                    throw new NotImplementedException();
+                case "unknown-function":
+                    throw new NotImplementedException();
+            }
+        }
+
+        static JsonValue Evaluate(JsonElement given, string expression)
+        {
+            var pe = Expression.Parse(expression);
+            var projector = new TreeProjector<Node>(new TreeProjector());
+            Machine.Run(pe, projector);
+            return projector.Result.Evaluate(JsonValue.From(given), JsonSystem.Default);
         }
 
         static IEnumerable<ITestCaseData> TestData(bool success) =>
