@@ -1,7 +1,9 @@
 namespace JmesPath.Tests
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Text;
 
     enum JsonValueKind { Null, Boolean, Number, String, Array, Object }
@@ -17,6 +19,74 @@ namespace JmesPath.Tests
         bool GetMemberValue(T obj, string name, out T value);
         bool GetBooleanValue(T value);
         int GetLength(T value);
+    }
+
+    struct JsonObject : IDictionary<string, JsonValue>
+    {
+        readonly List<KeyValuePair<string, JsonValue>> _members;
+        ICollection<string> _keys;
+        ICollection<JsonValue> _values;
+
+        public JsonObject(List<KeyValuePair<string, JsonValue>> members) =>
+            (_members, _keys, _values) = (members, null, null);
+
+        public IEnumerator<KeyValuePair<string, JsonValue>> GetEnumerator() =>
+            _members.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        bool ICollection<KeyValuePair<string, JsonValue>>.Contains(KeyValuePair<string, JsonValue> item) =>
+            _members is {} ms && ms.Contains(item);
+
+        public void CopyTo(KeyValuePair<string, JsonValue>[] array, int arrayIndex)
+        {
+            if (_members is {} ms)
+                ms.CopyTo(array, arrayIndex);
+        }
+
+        public int Count => _members is {} ms ? ms.Count : 0;
+
+        bool ICollection<KeyValuePair<string, JsonValue>>.IsReadOnly => true;
+
+        public bool ContainsKey(string key) =>
+            _members is {} ms && ms.Any(m => m.Key == key);
+
+        public bool TryGetValue(string key, out JsonValue value)
+        {
+            if (_members is {} ms && ms.SingleOrDefault(m => m.Key == key) is {} m
+                                  && m.Key is {})
+            {
+                value = m.Value;
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
+
+        public JsonValue this[string key]
+        {
+            get => TryGetValue(key, out var value) ? value : JsonValue.Null;
+            set => throw ReadOnlyError();
+        }
+
+        public ICollection<string> Keys
+            => _keys ??= _members is {} ms
+             ? ms.Select(e => e.Key).ToList()
+             : (ICollection<string>)Array.Empty<string>();
+
+        public ICollection<JsonValue> Values
+            => _values ??= _members is {} ms
+             ? ms.Select(e => e.Value).ToList()
+             : (ICollection<JsonValue>)Array.Empty<JsonValue>();
+
+        static InvalidOperationException ReadOnlyError() => new InvalidOperationException("Collection is read-only.");
+
+        void ICollection<KeyValuePair<string, JsonValue>>.Add(KeyValuePair<string, JsonValue> item) => throw ReadOnlyError();
+        void ICollection<KeyValuePair<string, JsonValue>>.Clear() => throw ReadOnlyError();
+        bool ICollection<KeyValuePair<string, JsonValue>>.Remove(KeyValuePair<string, JsonValue> item) => throw ReadOnlyError();
+        void IDictionary<string, JsonValue>.Add(string key, JsonValue value) => throw ReadOnlyError();
+        bool IDictionary<string, JsonValue>.Remove(string key) => throw ReadOnlyError();
     }
 
     struct JsonValue
