@@ -494,7 +494,7 @@ namespace JmesPath.Tests
                 return system.Null;
             var length = system.GetLength(result);
             var index = Index is {} i && i >= 0 ? i : length + i;
-            return index < 0 ? system.Null : system.Index(result, index);
+            return index < 0 || index >= length ? system.Null : system.Index(result, index);
         }
     }
 
