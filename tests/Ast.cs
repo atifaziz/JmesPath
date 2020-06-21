@@ -27,7 +27,7 @@ namespace JmesPath.Tests
         IEnumerable<T> GetArrayValues(T value);
     }
 
-    struct JsonObject : IDictionary<string, JsonValue>
+    struct JsonObject : IDictionary<string, JsonValue>, IEquatable<JsonObject>
     {
         readonly List<KeyValuePair<string, JsonValue>> _members;
         ICollection<string> _keys;
@@ -95,6 +95,28 @@ namespace JmesPath.Tests
         bool IDictionary<string, JsonValue>.Remove(string key) => throw ReadOnlyError();
 
         public override string ToString() => JsonSerializer.Serialize(this);
+
+        public bool Equals(JsonObject other)
+        {
+            if (Count != other.Count)
+                return false;
+
+            foreach (var (name, value) in _members)
+            {
+                if (!other.TryGetValue(name, out var otherValue) || value != otherValue)
+                    return false;
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj) =>
+            obj is JsonObject other && Equals(other);
+
+        public override int GetHashCode() => _members.GetHashCode();
+
+        public static bool operator ==(JsonObject left, JsonObject right) => left.Equals(right);
+        public static bool operator !=(JsonObject left, JsonObject right) => !left.Equals(right);
     }
 
     struct JsonValue : IEquatable<JsonValue>
@@ -211,7 +233,7 @@ namespace JmesPath.Tests
                      num: (a, v) => Math.Abs(a._number - v) < double.Epsilon,
                      str: (a, v) => a.GetString() == v,
                      arr: (a, v) => v.SequenceEqual(a.GetArray()),
-                     obj: (a, v) => v.SequenceEqual(a.GetObject()));
+                     obj: (a, v) => (JsonObject)a.GetObject() == (JsonObject)v);
 
         public override bool Equals(object obj)
         {
