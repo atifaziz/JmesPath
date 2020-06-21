@@ -519,6 +519,27 @@ namespace JmesPath.Tests
         }
     }
 
+    sealed class ProjectionNode : BinaryNode
+    {
+        public ProjectionNode(Node left, Node right) :
+            base(left, right) {}
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            var obj = Left.Evaluate(value, system);
+            if (system.GetKind(obj) != JsonValueKind.Array)
+                return system.Null;
+            var list = new List<T>(system.GetLength(obj));
+            foreach (var v in system.GetArrayValues(obj))
+            {
+                var p = Right.Evaluate(v, system);
+                if (system.GetKind(p) != JsonValueKind.Null)
+                    list.Add(p);
+            }
+            return system.Array(list);
+        }
+    }
+
     sealed class TreeProjector : ITreeProjector<Node>
     {
         public Node RawString(string s, int index, int length)
@@ -666,10 +687,8 @@ namespace JmesPath.Tests
             throw new NotImplementedException();
         }
 
-        public Node Projection(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node Projection(Node left, Node right) =>
+            new ProjectionNode(left, right);
 
         public Node Index(Node source, int index) =>
             new IndexNode(source, index);
