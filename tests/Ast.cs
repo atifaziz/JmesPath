@@ -26,6 +26,7 @@ namespace JmesPath.Tests
         int GetLength(T value);
         T Index(T value, int index);
         IEnumerable<T> GetArrayValues(T value);
+        IEnumerable<KeyValuePair<string, T>> GetObjectMembers(T value);
     }
 
     struct JsonObject : IDictionary<string, JsonValue>, IEquatable<JsonObject>
@@ -312,6 +313,9 @@ namespace JmesPath.Tests
 
             public IEnumerable<JsonValue> GetArrayValues(JsonValue value) =>
                 value.Kind == JsonValueKind.Array ? value.GetArray() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+
+            public IEnumerable<KeyValuePair<string, JsonValue>> GetObjectMembers(JsonValue value) =>
+                value.Kind == JsonValueKind.Object ? value.GetObject() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
         }
 
         public static T Boolean<T>(this IJsonSystem<T> system, bool value) =>
