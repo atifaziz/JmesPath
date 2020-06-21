@@ -3,6 +3,7 @@ namespace JmesPath.Tests
     using System;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Text;
     using System.Text.Json;
@@ -476,16 +477,23 @@ namespace JmesPath.Tests
             static string Unescape(string s)
             {
                 StringBuilder sb = null;
-                for (var si = 0; ;)
+                var si = 0;
+
+                while (true)
                 {
-                    var i = s.IndexOf('\\', si);
+                    var i = s.IndexOf(@"\'", si, StringComparison.Ordinal);
                     if (i < 0)
                         break;
                     sb ??= new StringBuilder();
-                    sb.Append(s, si, i - si).Append(s[i + 1]);
+                    sb.Append(s, si, i - si).Append('\'');
                     si = i + 2;
                 }
-                return sb?.ToString() ?? s;
+
+                if (sb == null)
+                    return s;
+
+                sb.Append(s, si, s.Length - si);
+                return sb.ToString();
             }
         }
 
@@ -499,39 +507,47 @@ namespace JmesPath.Tests
             static string Unescape(string s)
             {
                 StringBuilder sb = null;
-                for (var si = 0; ;)
+                var si = 0;
+
+                while (true)
                 {
                     var i = s.IndexOf('\\', si);
                     if (i < 0)
                         break;
-                    var replacement = s[i + 1] switch
+                    var (replacement, skip) = s[i + 1] switch
                     {
-                        '\\' => '\\',
-                        '"' => '"',
-                        '/' => '/',
-                        'b' => '\b',
-                        'f' => '\f',
-                        'n' => '\n',
-                        'r' => '\r',
-                        'v' => '\v',
-                        't' => '\t',
-                        _ => (char?)null
+                        '\\' => ('\\', 1),
+                        '"'  => ('"',  1),
+                        '/'  => ('/',  1),
+                        'b'  => ('\b', 1),
+                        'f'  => ('\f', 1),
+                        'n'  => ('\n', 1),
+                        'r'  => ('\r', 1),
+                        'v'  => ('\v', 1),
+                        't'  => ('\t', 1),
+                        'u'  => ((char)int.Parse(s.AsSpan(i + 2, 4), NumberStyles.HexNumber), 5),
+                        _ => default
                     };
                     sb ??= new StringBuilder();
                     sb.Append(s, si, i - si);
                     si = i + 1;
-                    if (replacement is {} ch)
+                    if (skip > 0)
                     {
-                        sb.Append(ch);
-                        si++;
+                        sb.Append(replacement);
+                        si += skip;
                     }
                 }
-                return sb?.ToString() ?? s;
+
+                if (sb == null)
+                    return s;
+
+                sb.Append(s, si, s.Length - si);
+                return sb.ToString();
             }
         }
 
         public Node Literal(string s, int index, int length) =>
-            new LiteralNode(s.Substring(index + 1, length - 2));
+            new LiteralNode(s.Substring(index + 1, length - 2).Replace(@"\`", "`"));
 
         public Node Current() => CurrentNode.Value;
 

@@ -89,7 +89,14 @@ namespace JmesPath.Tests
         [TestCase("\"foo", "Unexpected end of input at offset 4; unterminated string.")]
         [TestCase("`\"foo\"", "Unexpected end of input at offset 6; unterminated literal.")]
         [TestCase("\"\x0", "Invalid string character at offset 1.")]
-        [TestCase("'\x0", "Invalid string character at offset 1.")]
+        [TestCase(@"""\u""", "Invalid escape hexadecimal digit at offset 3.")]
+        [TestCase(@"""\u1""", "Invalid escape hexadecimal digit at offset 4.")]
+        [TestCase(@"""\u12""", "Invalid escape hexadecimal digit at offset 5.")]
+        [TestCase(@"""\u123""", "Invalid escape hexadecimal digit at offset 6.")]
+        [TestCase(@"""\u", "Unexpected end of input at offset 3; unterminated string.")]
+        [TestCase(@"""\u1", "Unexpected end of input at offset 4; unterminated string.")]
+        [TestCase(@"""\u12", "Unexpected end of input at offset 5; unterminated string.")]
+        [TestCase(@"""\u123", "Unexpected end of input at offset 6; unterminated string.")]
         public void SyntaxError(string path, string message)
         {
             var e = Assert.Throws<SyntaxErrorException>(() =>

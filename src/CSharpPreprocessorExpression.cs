@@ -822,6 +822,7 @@ namespace JmesPath
             RawStringSlash,
             QuotedString,
             QuotedStringSlash,
+            QuotedStringHex,
             UnquotedString,
             Literal,
             LiteralSlash,
@@ -852,6 +853,7 @@ namespace JmesPath
             var ignoreWhiteSpace = (options & ScanOptions.IgnoreWhiteSpace) != 0;
 
             var si = 0;
+            var hi = 0;
             var resetState = false;
 
             Token Token(TokenKind kind, int len)
@@ -931,10 +933,6 @@ namespace JmesPath
                         {
                             case '\\': state = State.RawStringSlash; break;
                             case '\'': yield return Token(TokenKind.RawString, i + 1 - si); break;
-                            default:
-                                if (ch < 20)
-                                    throw new SyntaxErrorException($"Invalid string character at offset {i}.");
-                                break;
                         }
                         break;
                     }
@@ -958,8 +956,38 @@ namespace JmesPath
                     }
                     case State.QuotedStringSlash:
                     {
-                        state = State.QuotedString;
+                        switch (ch)
+                        {
+                            case 'b':
+                            case 'f':
+                            case 'n':
+                            case 'r':
+                            case 't':
+                            case '/':
+                            case '"':
+                            case '\\':
+                                state = State.QuotedString;
+                                break;
+                            case 'u':
+                                hi = i;
+                                state = State.QuotedStringHex;
+                                break;
+                            default:
+                                throw new SyntaxErrorException($"Invalid escape character at offset {i}.");
+                        }
                         break;
+                    }
+                    case State.QuotedStringHex:
+                    {
+                        if (i - hi > 4)
+                        {
+                            state = State.QuotedString;
+                            goto restart;
+                        }
+
+                        if (ch >= '0' && ch <= '9' || ch >= 'A' && ch <= 'F' || ch >= 'a' && ch <= 'f')
+                            break;
+                        throw new SyntaxErrorException($"Invalid escape hexadecimal digit at offset {i}.");
                     }
                     case State.LeftBracket:
                     {
@@ -1084,6 +1112,7 @@ namespace JmesPath
                 case State.RawStringSlash   :
                 case State.QuotedString     :
                 case State.QuotedStringSlash:
+                case State.QuotedStringHex  :
                     throw new SyntaxErrorException($"Unexpected end of input at offset {i}; unterminated string.");
                 case State.Literal:
                 case State.LiteralSlash:
