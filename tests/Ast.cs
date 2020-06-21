@@ -18,6 +18,7 @@ namespace JmesPath.Tests
         JsonValueKind GetKind(T value);
         T Parse(string json);
         T String(string value);
+        T Array(IList<T> values);
         bool GetMemberValue(T obj, string name, out T value);
         bool GetBooleanValue(T value);
         double GetNumberValue(T value);
@@ -271,6 +272,9 @@ namespace JmesPath.Tests
                 JsonValue.From(JsonDocument.Parse(json).RootElement);
 
             public JsonValue String(string value) => JsonValue.String(value);
+
+            public JsonValue Array(IList<JsonValue> values) =>
+                JsonValue.Array(values);
 
             public bool GetMemberValue(JsonValue obj, string name, out JsonValue value)
             {
