@@ -244,10 +244,8 @@ namespace JmesPath.Tests
 
             public JsonValueKind GetKind(JsonValue value) => value.Kind;
 
-            public JsonValue Parse(string json)
-            {
-                throw new NotImplementedException();
-            }
+            public JsonValue Parse(string json) =>
+                JsonValue.From(JsonDocument.Parse(json).RootElement);
 
             public JsonValue String(string value) => JsonValue.String(value);
 
@@ -533,7 +531,7 @@ namespace JmesPath.Tests
         }
 
         public Node Literal(string s, int index, int length) =>
-            new LiteralNode(s.Substring(index, length));
+            new LiteralNode(s.Substring(index + 1, length - 2));
 
         public Node Current() => CurrentNode.Value;
 
