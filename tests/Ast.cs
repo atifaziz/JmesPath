@@ -580,6 +580,30 @@ namespace JmesPath.Tests
         }
     }
 
+    sealed class FlattenNode : Node
+    {
+        public Node Source { get; }
+
+        public FlattenNode(Node source) =>
+            Source = source;
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            var source = Source.Evaluate(value, system);
+            if (system.GetKind(source) != JsonValueKind.Array)
+                return system.Null;
+            var list = new List<T>();
+            foreach (var item in system.GetArrayValues(source))
+            {
+                if (system.GetKind(item) == JsonValueKind.Array)
+                    list.AddRange(system.GetArrayValues(item));
+                else
+                    list.Add(item);
+            }
+            return system.Array(list);
+        }
+    }
+
     sealed class TreeProjector : ITreeProjector<Node>
     {
         public string GetString(Node node) => (StringNode)node;
@@ -702,10 +726,8 @@ namespace JmesPath.Tests
             throw new NotImplementedException();
         }
 
-        public Node Flatten(Node source)
-        {
-            throw new NotImplementedException();
-        }
+        public Node Flatten(Node source) =>
+            new FlattenNode(source);
 
         public Node Field(Node name) => new FieldNode((StringNode)name);
 
