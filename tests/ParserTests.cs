@@ -9,6 +9,7 @@ namespace JmesPath.Tests
     {
         [TestCase("@ 123", "Unexpected token <Number> at offset 2.")]
         [TestCase("foo bar", "Unexpected token <UnquotedString> at offset 4.")]
+        [TestCase("@(foo)", "Invalid function near offset 2.")]
         public void SyntaxError(string path, string error)
         {
             var e = Assert.Throws<SyntaxErrorException>(() => Expression.Parse(path));

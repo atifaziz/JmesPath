@@ -468,12 +468,8 @@ namespace JmesPath
                 {   // ...left
                     if (!(p.State.PeekOp(-1) is {} left) || left.Code != OpCode.Field)
                     {
-                        //  0 - first func arg or closing paren.
-                        // -1 - '(' token
-                        // -2 - invalid function "name".
-                        var i = p.State.PeekOp(-2).Arg;
-                        var token = p.State.Tokens[i];
-                        throw new SyntaxErrorException($"Invalid function name at offset {token.Index}: {token.Substring(p.State.SourceText)}");
+                        var (_, token) = p.Peek();
+                        throw new SyntaxErrorException($"Invalid function near offset {token.Index}.");
                     }
 
                     var count = 0;
