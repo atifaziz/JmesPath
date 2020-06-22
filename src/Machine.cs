@@ -85,8 +85,11 @@ namespace JmesPath
         {
             var items = new KeyValuePair<string, T>[count];
             for (var i = count - 1; i >= 0; i--)
-                items[i] = new KeyValuePair<string, T>(null, Pop());
-            _tree.MultiSelectHash(items);
+            {
+                var (name, field) = Pop2();
+                items[i] = new KeyValuePair<string, T>(_tree.GetString(name), field);
+            }
+            Push(_tree.MultiSelectHash(items));
         }
 
         public void FilterProjection() =>
@@ -123,6 +126,7 @@ namespace JmesPath
 
     partial interface ITreeProjector<T>
     {
+        string GetString(T node);
         T RawString(string s, int index, int length);
         T UnquotedString(string s, int index, int length);
         T QuotedString(string s, int index, int length);

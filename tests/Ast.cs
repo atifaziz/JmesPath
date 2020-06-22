@@ -19,6 +19,7 @@ namespace JmesPath.Tests
         T Parse(string json);
         T String(string value);
         T Array(IList<T> values);
+        T Object(IEnumerable<KeyValuePair<string, T>> members);
         bool GetMemberValue(T obj, string name, out T value);
         bool GetBooleanValue(T value);
         double GetNumberValue(T value);
@@ -276,6 +277,9 @@ namespace JmesPath.Tests
 
             public JsonValue Array(IList<JsonValue> values) =>
                 JsonValue.Array(values);
+
+            public JsonValue Object(IEnumerable<KeyValuePair<string, JsonValue>> members) =>
+                JsonValue.Object(new JsonObject(members.ToList()));
 
             public bool GetMemberValue(JsonValue obj, string name, out JsonValue value)
             {
@@ -558,8 +562,28 @@ namespace JmesPath.Tests
         }
     }
 
+    sealed class MultiSelectHashNode : Node
+    {
+        public IReadOnlyList<KeyValuePair<string, Node>> Hash { get; }
+
+        public MultiSelectHashNode(IReadOnlyList<KeyValuePair<string, Node>> hash) =>
+            Hash = hash;
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            if (system.GetKind(value) == JsonValueKind.Null)
+                return value;
+            var obj = new List<KeyValuePair<string, T>>(Hash.Count);
+            foreach (var (name, v) in Hash)
+                obj.Add(KeyValuePair.Create(name, v.Evaluate(value, system)));
+            return system.Object(obj);
+        }
+    }
+
     sealed class TreeProjector : ITreeProjector<Node>
     {
+        public string GetString(Node node) => (StringNode)node;
+
         public Node RawString(string s, int index, int length)
         {
             return new StringNode(Unescape(s.Substring(index + 1, length - 2)));
@@ -693,10 +717,8 @@ namespace JmesPath.Tests
         public Node MultiSelectList(Node[] list) =>
             new MultiSelectListNode(list);
 
-        public Node MultiSelectHash(KeyValuePair<string, Node>[] hash)
-        {
-            throw new NotImplementedException();
-        }
+        public Node MultiSelectHash(KeyValuePair<string, Node>[] hash) =>
+            new MultiSelectHashNode(hash);
 
         public Node FilterProjection(Node left, Node right, Node condition)
         {
