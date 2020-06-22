@@ -49,7 +49,7 @@ namespace JmesPath.Tests
             where !success && re.Error is {}
                || success && re.Error is null
             select new TestCaseData(t.Given, t.Expression, re.Error ?? (object)re.Result)
-                .SetName($"{(success ? "Result" : "Error")}.{t.Name}({t.Expression}) << {t.Given})");
+                .SetName($"{(success ? "Result" : "Error")}.{t.Name}({t.Expression} << {t.Given})");
 
         abstract class ComplianceRecord
         {
