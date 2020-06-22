@@ -79,7 +79,7 @@ namespace JmesPath
         }
 
         public void MultiSelectList(int count) =>
-            _tree.MultiSelectList(Pop(count));
+            Push(_tree.MultiSelectList(Pop(count)));
 
         public void MultiSelectHash(int count)
         {

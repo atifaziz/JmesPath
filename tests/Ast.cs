@@ -540,6 +540,24 @@ namespace JmesPath.Tests
         }
     }
 
+    sealed class MultiSelectListNode : Node
+    {
+        public IReadOnlyList<Node> List { get; }
+
+        public MultiSelectListNode(IReadOnlyList<Node> list) =>
+            List = list;
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            if (system.GetKind(value) == JsonValueKind.Null)
+                return value;
+            var list = new List<T>(List.Count);
+            foreach (var node in List)
+                list.Add(node.Evaluate(value, system));
+            return system.Array(list);
+        }
+    }
+
     sealed class TreeProjector : ITreeProjector<Node>
     {
         public Node RawString(string s, int index, int length)
@@ -672,10 +690,8 @@ namespace JmesPath.Tests
         public Node ValueProjection(Node left, Node right) =>
             new ValueProjectionNode(left, right);
 
-        public Node MultiSelectList(Node[] list)
-        {
-            throw new NotImplementedException();
-        }
+        public Node MultiSelectList(Node[] list) =>
+            new MultiSelectListNode(list);
 
         public Node MultiSelectHash(KeyValuePair<string, Node>[] hash)
         {
