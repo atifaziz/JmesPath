@@ -16,6 +16,13 @@ namespace JmesPath.Tests
             Assert.That(e.Message, Is.EqualTo(error));
         }
 
+        [TestCase(@"[0:0:0]", "Invalid slice step at offset 5.")]
+        public void InvalidValue(string path, string error)
+        {
+            var e = Assert.Throws<InvalidValueException>(() => Expression.Parse(path));
+            Assert.That(e.Message, Is.EqualTo(error));
+        }
+
         [TestCase("`null`", @"
             0: Literal `null`")]
         [TestCase("a && b", @"

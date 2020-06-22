@@ -356,6 +356,13 @@ namespace JmesPath
         public SyntaxErrorException(string message, Exception inner) : base(message, inner) {}
     }
 
+    partial class InvalidValueException : Exception
+    {
+        public InvalidValueException() {}
+        public InvalidValueException(string message) : base(message) {}
+        public InvalidValueException(string message, Exception inner) : base(message, inner) {}
+    }
+
     static class X
     {
         public static void Emit(this Parser parser, OpCode code, int arg = 0) =>
@@ -558,7 +565,7 @@ namespace JmesPath
             //  | current token
             if (parser.Peek() is (TokenKind.Colon, _))
             {
-                ParseSliceExpression(parser);
+                ParseSliceExpression();
                 return IndexOrSlice.Slice;
             }
             else // Parse the syntax [number]
@@ -566,7 +573,8 @@ namespace JmesPath
                 var number = parser.Read(TokenKind.Number);
                 if (parser.Peek() is (TokenKind.Colon, _))
                 {
-                    ParseSliceExpression(parser, 1);
+                    _ = EmitConstFromIntegerToken(number);
+                    ParseSliceExpression();
                     return IndexOrSlice.Slice;
                 }
                 else
@@ -577,36 +585,52 @@ namespace JmesPath
                     return IndexOrSlice.Index;
                 }
             }
-        }
 
-        static void ParseSliceExpression(Parser parser, int index = 0)
-        {
-            // [start:end:step]
-            // Where start, end, and step are optional.
-            // The last colon is optional as well.
-            while (!parser.Match(TokenKind.RBracket) && index < 3)
+            void ParseSliceExpression()
             {
-                switch (parser.Peek())
-                {
-                    case (TokenKind.Colon, var colon):
-                        index++;
-                        if (index == 3)
-                            throw new SyntaxErrorException($"Too many slice arguments at offset {colon.Index}.");
-                        parser.Read();
-                        parser.Emit(OpCode.Null);
-                        break;
-                    case (TokenKind.Number, var token):
-                        parser.Read();
-                        var n = NumberToInt32(parser.State.SourceText, token.Index, token.Length);
-                        parser.Emit(OpCode.Const, n);
-                        break;
-                    case var (_, token):
-                        throw new SyntaxErrorException($"Unexpected token <{token.Kind}> at offset {token.Index}.");
-                }
-            }
-            parser.Emit(OpCode.Slice);
+                var step = 1;
+                Token stepToken = default;
 
+                // [start:end:step]
+                // Where start, end, and step are optional.
+                // The last colon is optional as well.
+                for (var index = 0; !parser.Match(TokenKind.RBracket) && index < 3;)
+                {
+                    switch (parser.Peek())
+                    {
+                        case (TokenKind.Colon, var colon):
+                            index++;
+                            if (index == 3)
+                                throw new SyntaxErrorException($"Too many slice arguments at offset {colon.Index}.");
+                            parser.Read();
+                            parser.Emit(OpCode.Null);
+                            break;
+                        case (TokenKind.Number, var token):
+                            parser.Read();
+                            var n = EmitConstFromIntegerToken(token);
+                            if (index == 2)
+                                (step, stepToken) = (n, token);
+                            parser.Emit(OpCode.Const, n);
+                            break;
+                        case var (_, token):
+                            throw new SyntaxErrorException($"Unexpected token <{token.Kind}> at offset {token.Index}.");
+                    }
+                }
+
+                if (step == 0)
+                    throw new InvalidValueException($"Invalid slice step at offset {stepToken.Index}.");
+
+                parser.Emit(OpCode.Slice);
+            }
+
+            int EmitConstFromIntegerToken(Token token)
+            {
+                var n = NumberToInt32(parser.State.SourceText, token.Index, token.Length);
+                parser.Emit(OpCode.Const, n);
+                return n;
+            }
         }
+
 
         static int NumberToInt32(string s, int i, int len)
         {

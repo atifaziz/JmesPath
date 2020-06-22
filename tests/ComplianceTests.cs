@@ -20,15 +20,17 @@ namespace JmesPath.Tests
         [TestCaseSource(nameof(TestData), new object[] { false })]
         public void Error(JsonElement given, string expression, string error)
         {
+            TestDelegate test = () => Evaluate(given, expression);
             switch (error)
             {
                 case "syntax":
-                    Assert.Throws<SyntaxErrorException>(() => Evaluate(given, expression));
+                    Assert.Throws<SyntaxErrorException>(test);
                     break;
                 case "invalid-type":
                     throw new NotImplementedException();
                 case "invalid-value":
-                    throw new NotImplementedException();
+                    Assert.Throws<InvalidValueException>(test);
+                    break;
                 case "unknown-function":
                     throw new NotImplementedException();
             }
