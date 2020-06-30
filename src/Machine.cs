@@ -101,10 +101,11 @@ namespace JmesPath
         public void Index(int index) =>
             _stack.Push(_tree.Index(Pop(), index));
 
-        public void Slice(int? start, int? stop, int? step)
-        {
-            throw new NotImplementedException();
-        }
+        public void IndexExpression() =>
+            Binary((tree, left, right) => tree.IndexExpression(left, right));
+
+        public void Slice(int? start, int? stop, int? step) =>
+            _stack.Push(_tree.Slice(start, stop, step));
 
         public void Reference()
         {
@@ -150,6 +151,7 @@ namespace JmesPath
         T FilterProjection(T left, T right, T condition);
         T Projection(T left, T right);
         T Index(T source, int index);
+        T IndexExpression(T left, T right);
         T Slice(int? start, int? stop, int? step);
         T Reference();
         T SubExpression(T left, T right);
@@ -182,6 +184,7 @@ namespace JmesPath
         void FilterProjection();
         void Projection();
         void Index(int index);
+        void IndexExpression();
         void Slice(int? start, int? stop, int? step);
         void Reference();
         void SubExpression();
@@ -276,8 +279,14 @@ namespace JmesPath
                             throw new Exception("Implementation error.");
                         break;
                     }
+                    case OpCode.IndexExpression:
+                        projector.IndexExpression();
+                        break;
                     case OpCode.Slice:
-                        projector.Slice(Pop(), Pop(), Pop());
+                        var step = Pop();
+                        var stop = Pop();
+                        var start = Pop();
+                        projector.Slice(start, stop, step);
                         break;
                     case OpCode.Reference: projector.Reference(); break;
                     case OpCode.SubExpression: projector.SubExpression(); break;

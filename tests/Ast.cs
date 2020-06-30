@@ -604,6 +604,42 @@ namespace JmesPath.Tests
         }
     }
 
+    sealed class SliceNode : Node
+    {
+        public int? Start { get; }
+        public int? Stop  { get; }
+        public int? Step  { get; }
+
+        public SliceNode(int? start, int? stop, int? step) =>
+            (Start, Stop, Step) = (start, stop, step);
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            if (system.GetKind(value) != JsonValueKind.Array)
+                return system.Null;
+            var values = system.GetArrayValues(value);
+            var source = values is IList<T> lst ? lst : values.ToList();
+            var list = new List<T>();
+            var step  = Step ?? 1;
+            var start = (Start ?? (step > 0 ? 0 : source.Count - 1)) is {} st && st < 0 ? Math.Max(0, source.Count + st) : Math.Min(st, source.Count - 1);
+            var stop  = Stop is {} se
+                      ? se < 0 ? Math.Max(source.Count + se, -1) : Math.Min(se, source.Count)
+                      : step > 0 ? source.Count : -1;
+            for (var i = start; step > 0 ? i < stop : i > stop; i += step)
+                list.Add(source[i]);
+            return system.Array(list);
+        }
+    }
+
+    sealed class IndexExpressionNode : BinaryNode
+    {
+        public IndexExpressionNode(Node left, Node right) :
+            base(left, right) {}
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
+            Right.Evaluate(Left.Evaluate(value, system), system);
+    }
+
     sealed class TreeProjector : ITreeProjector<Node>
     {
         public string GetString(Node node) => (StringNode)node;
@@ -753,10 +789,11 @@ namespace JmesPath.Tests
         public Node Index(Node source, int index) =>
             new IndexNode(source, index);
 
-        public Node Slice(int? start, int? stop, int? step)
-        {
-            throw new NotImplementedException();
-        }
+        public Node IndexExpression(Node left, Node right) =>
+            new IndexExpressionNode(left, right);
+
+        public Node Slice(int? start, int? stop, int? step) =>
+            new SliceNode(start, stop, step);
 
         public Node Reference()
         {

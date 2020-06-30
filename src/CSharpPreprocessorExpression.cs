@@ -69,6 +69,7 @@ namespace JmesPath
         FilterProjection,
         Projection,
         Index,
+        IndexExpression,
         Null,
         Slice,
         Reference,
@@ -547,11 +548,15 @@ namespace JmesPath
 
         static void ProjectIfSlice(Parser parser, IndexOrSlice ios)
         {
-            parser.Emit(OpCode.Index);
             if (ios == IndexOrSlice.Slice)
             {
+                parser.Emit(OpCode.IndexExpression);
                 ParseProjectionRhs(parser, Precedence.Star);
                 parser.Emit(OpCode.Projection);
+            }
+            else
+            {
+                parser.Emit(OpCode.Index);
             }
         }
 
@@ -573,8 +578,7 @@ namespace JmesPath
                 var number = parser.Read(TokenKind.Number);
                 if (parser.Peek() is (TokenKind.Colon, _))
                 {
-                    _ = EmitConstFromIntegerToken(number);
-                    ParseSliceExpression();
+                    ParseSliceExpression(EmitConstFromIntegerToken(number));
                     return IndexOrSlice.Slice;
                 }
                 else
@@ -586,7 +590,7 @@ namespace JmesPath
                 }
             }
 
-            void ParseSliceExpression()
+            void ParseSliceExpression(int? n = null)
             {
                 var step = 1;
                 Token stepToken = default;
@@ -594,23 +598,28 @@ namespace JmesPath
                 // [start:end:step]
                 // Where start, end, and step are optional.
                 // The last colon is optional as well.
-                for (var index = 0; !parser.Match(TokenKind.RBracket) && index < 3;)
+                var index = n is {} ? 1 : 0;
+                while (!parser.Match(TokenKind.RBracket))
                 {
                     switch (parser.Peek())
                     {
                         case (TokenKind.Colon, var colon):
-                            index++;
+                            if (n is null)
+                                index++;
                             if (index == 3)
                                 throw new SyntaxErrorException($"Too many slice arguments at offset {colon.Index}.");
+                            if (n is null)
+                                parser.Emit(OpCode.Null);
+                            else
+                                n = null;
                             parser.Read();
-                            parser.Emit(OpCode.Null);
                             break;
-                        case (TokenKind.Number, var token):
+                        case (TokenKind.Number, var token) when n is null:
                             parser.Read();
-                            var n = EmitConstFromIntegerToken(token);
-                            if (index == 2)
-                                (step, stepToken) = (n, token);
-                            parser.Emit(OpCode.Const, n);
+                            n = EmitConstFromIntegerToken(token);
+                            if (n is {} sn && index == 2)
+                                (step, stepToken) = (sn, token);
+                            index++;
                             break;
                         case var (_, token):
                             throw new SyntaxErrorException($"Unexpected token <{token.Kind}> at offset {token.Index}.");
@@ -619,6 +628,9 @@ namespace JmesPath
 
                 if (step == 0)
                     throw new InvalidValueException($"Invalid slice step at offset {stepToken.Index}.");
+
+                for (; index < 3; index++)
+                    parser.Emit(OpCode.Null);
 
                 parser.Emit(OpCode.Slice);
             }
@@ -630,7 +642,6 @@ namespace JmesPath
                 return n;
             }
         }
-
 
         static int NumberToInt32(string s, int i, int len)
         {
