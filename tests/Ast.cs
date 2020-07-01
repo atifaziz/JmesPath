@@ -475,6 +475,46 @@ namespace JmesPath.Tests
                });
     }
 
+    abstract class OrderingNode : BinaryNode
+    {
+        protected OrderingNode(Node left, Node right) : base(left, right) {}
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+            => Left.Evaluate(value, system) is {} a
+            && system.GetKind(a) == JsonValueKind.Number
+            && Right.Evaluate(value, system) is {} b
+            && system.GetKind(b) == JsonValueKind.Number
+               ? Compare(system.GetNumberValue(a), system.GetNumberValue(b))
+                 ? system.True : system.False
+               : system.Null;
+
+        protected abstract bool Compare(double a, double b);
+    }
+
+    sealed class GreaterThanNode : OrderingNode
+    {
+        public GreaterThanNode(Node left, Node right) : base(left, right) {}
+        protected override bool Compare(double a, double b) => a > b;
+    }
+
+    sealed class GreaterThanEqualNode : OrderingNode
+    {
+        public GreaterThanEqualNode(Node left, Node right) : base(left, right) {}
+        protected override bool Compare(double a, double b) => a >= b;
+    }
+
+    sealed class LessThanNode : OrderingNode
+    {
+        public LessThanNode(Node left, Node right) : base(left, right) {}
+        protected override bool Compare(double a, double b) => a < b;
+    }
+
+    sealed class LessThanEqualNode : OrderingNode
+    {
+        public LessThanEqualNode(Node left, Node right) : base(left, right) {}
+        protected override bool Compare(double a, double b) => a <= b;
+    }
+
     sealed class SubExpressionNode : BinaryNode
     {
         public SubExpressionNode(Node left, Node right) :
@@ -735,25 +775,17 @@ namespace JmesPath.Tests
         public Node Or(Node left, Node right) =>
             new OrNode(left, right);
 
-        public Node GreaterThan(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node GreaterThan(Node left, Node right) =>
+            new GreaterThanNode(left, right);
 
-        public Node GreaterThanEqual(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node GreaterThanEqual(Node left, Node right) =>
+            new GreaterThanEqualNode(left, right);
 
-        public Node LessThan(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node LessThan(Node left, Node right) =>
+            new LessThanNode(left, right);
 
-        public Node LessThanEqual(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node LessThanEqual(Node left, Node right) =>
+            new LessThanEqualNode(left, right);
 
         public Node Equal(Node left, Node right) =>
             new EqualNode(left, right);
