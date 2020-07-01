@@ -457,8 +457,11 @@ namespace JmesPath.Tests
         public EqualNode(Node left, Node right) : base(left, right) {}
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
-            system.Boolean(Left.Evaluate(value, system) is {} l
-            && Right.Evaluate(value, system) is {} r
+            system.Boolean(Evaluate(system, value, Left, Right));
+
+        public static bool Evaluate<T>(IJsonSystem<T> system, T value, Node left, Node right) =>
+            left.Evaluate(value, system) is {} l
+            && right.Evaluate(value, system) is {} r
             && system.GetKind(l) switch
                {
                    JsonValueKind.Null =>
@@ -472,7 +475,15 @@ namespace JmesPath.Tests
                    JsonValueKind.Array => throw new NotImplementedException(),
                    JsonValueKind.Object => throw new NotImplementedException(),
                        _ => throw new ArgumentOutOfRangeException()
-               });
+               };
+    }
+
+    sealed class NotEqualNode : BinaryNode
+    {
+        public NotEqualNode(Node left, Node right) : base(left, right) {}
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
+            EqualNode.Evaluate(system, value, Left, Right) is {} r && r ? system.False : system.True;
     }
 
     abstract class OrderingNode : BinaryNode
@@ -790,10 +801,8 @@ namespace JmesPath.Tests
         public Node Equal(Node left, Node right) =>
             new EqualNode(left, right);
 
-        public Node NotEqual(Node left, Node right)
-        {
-            throw new NotImplementedException();
-        }
+        public Node NotEqual(Node left, Node right) =>
+            new NotEqualNode(left, right);
 
         public Node Flatten(Node source) =>
             new FlattenNode(source);
