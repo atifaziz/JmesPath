@@ -445,7 +445,7 @@ namespace JmesPath.Tests
 
     sealed class OrNode : BinaryNode
     {
-        public OrNode(Node left, Node right) : base(left, right) { }
+        public OrNode(Node left, Node right) : base(left, right) {}
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system)
             => Left.Evaluate(value, system) is {} l && system.IsTruthy(l) ? l
@@ -454,7 +454,7 @@ namespace JmesPath.Tests
 
     sealed class EqualNode : BinaryNode
     {
-        public EqualNode(Node left, Node right) : base(left, right) { }
+        public EqualNode(Node left, Node right) : base(left, right) {}
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
             system.Boolean(Left.Evaluate(value, system) is {} l
@@ -477,7 +477,8 @@ namespace JmesPath.Tests
 
     sealed class SubExpressionNode : BinaryNode
     {
-        public SubExpressionNode(Node left, Node right) : base(left, right) {}
+        public SubExpressionNode(Node left, Node right) :
+            base(left, right) {}
 
         public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
             Right.Evaluate(Left.Evaluate(value, system), system);
