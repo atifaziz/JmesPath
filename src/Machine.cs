@@ -93,7 +93,7 @@ namespace JmesPath
         }
 
         public void FilterProjection() =>
-            Ternary((tree, left, right, condition) => tree.FilterProjection(left, right, condition));
+            Ternary((tree, left, condition, right) => tree.FilterProjection(left, right, condition));
 
         public void Projection() =>
             Binary((tree, left, right) => tree.Projection(left, right));

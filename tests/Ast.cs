@@ -683,6 +683,38 @@ namespace JmesPath.Tests
         }
     }
 
+    sealed class FilterProjectionNode : Node
+    {
+        public Node Left { get; }
+        public Node Right { get; }
+        public Node Condition { get; }
+
+        public FilterProjectionNode(Node left, Node right, Node condition)
+        {
+            Left = left;
+            Right = right;
+            Condition = condition;
+        }
+
+        public override T Evaluate<T>(T value, IJsonSystem<T> system)
+        {
+            var source = Left.Evaluate(value, system);
+            if (system.GetKind(source) != JsonValueKind.Array)
+                return system.Null;
+            var list = new List<T>();
+            foreach (var item in system.GetArrayValues(source))
+            {
+                if (system.IsTruthy(Condition.Evaluate(item, system))
+                    && Right.Evaluate(item, system) is {} r
+                    && system.GetKind(r) != JsonValueKind.Null)
+                {
+                    list.Add(Right.Evaluate(item, system));
+                }
+            }
+            return system.Array(list);
+        }
+    }
+
     sealed class IndexExpressionNode : BinaryNode
     {
         public IndexExpressionNode(Node left, Node right) :
@@ -820,10 +852,8 @@ namespace JmesPath.Tests
         public Node MultiSelectHash(KeyValuePair<string, Node>[] hash) =>
             new MultiSelectHashNode(hash);
 
-        public Node FilterProjection(Node left, Node right, Node condition)
-        {
-            throw new NotImplementedException();
-        }
+        public Node FilterProjection(Node left, Node right, Node condition) =>
+            new FilterProjectionNode(left, right, condition);
 
         public Node Projection(Node left, Node right) =>
             new ProjectionNode(left, right);
