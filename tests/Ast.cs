@@ -28,6 +28,7 @@ namespace JmesPath.Tests
         T Index(T value, int index);
         IEnumerable<T> GetArrayValues(T value);
         IEnumerable<KeyValuePair<string, T>> GetObjectMembers(T value);
+        bool Equal(T a, T b);
     }
 
     struct JsonObject : IDictionary<string, JsonValue>, IEquatable<JsonObject>
@@ -320,6 +321,9 @@ namespace JmesPath.Tests
 
             public IEnumerable<KeyValuePair<string, JsonValue>> GetObjectMembers(JsonValue value) =>
                 value.Kind == JsonValueKind.Object ? value.GetObject() : throw new ArgumentOutOfRangeException(nameof(value), value, null);
+
+            public bool Equal(JsonValue a, JsonValue b) =>
+                a.Kind == b.Kind && a == b;
         }
 
         public static T Boolean<T>(this IJsonSystem<T> system, bool value) =>
@@ -459,23 +463,10 @@ namespace JmesPath.Tests
         public override T Evaluate<T>(T value, IJsonSystem<T> system) =>
             system.Boolean(Evaluate(system, value, Left, Right));
 
-        public static bool Evaluate<T>(IJsonSystem<T> system, T value, Node left, Node right) =>
-            left.Evaluate(value, system) is {} l
+        public static bool Evaluate<T>(IJsonSystem<T> system, T value, Node left, Node right)
+            => left.Evaluate(value, system) is {} l
             && right.Evaluate(value, system) is {} r
-            && system.GetKind(l) switch
-               {
-                   JsonValueKind.Null =>
-                       system.GetKind(r) == JsonValueKind.Null,
-                   JsonValueKind.Boolean =>
-                       system.GetKind(r) == JsonValueKind.Boolean && system.GetBooleanValue(l) == system.GetBooleanValue(r),
-                   JsonValueKind.Number =>
-                       system.GetKind(r) == JsonValueKind.Number && Math.Abs(system.GetNumberValue(l) - system.GetNumberValue(r)) < double.Epsilon,
-                   JsonValueKind.String =>
-                       system.GetKind(r) == JsonValueKind.String && system.GetStringValue(l) == system.GetStringValue(r),
-                   JsonValueKind.Array => throw new NotImplementedException(),
-                   JsonValueKind.Object => throw new NotImplementedException(),
-                       _ => throw new ArgumentOutOfRangeException()
-               };
+            && system.Equal(l, r);
     }
 
     sealed class NotEqualNode : BinaryNode
